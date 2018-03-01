@@ -1,0 +1,25 @@
+{
+    "configurations": [
+        {
+            "browse": {
+                "databaseFilename": "",
+                "limitSymbolsToIncludedHeaders": true,
+                "path": [
+                    "/opt/ros/kinetic/include",
+                    "/home/sofs/catkin_ws/src/beginner_tutorials/include",
+                    "/home/sofs/catkin_ws/src/rws2018/rws2018_ssantos/player_ssantos/include",
+                    "/usr/include"
+                ]
+            },
+            "includePath": [
+                "/opt/ros/kinetic/include",
+                "/home/sofs/catkin_ws/src/beginner_tutorials/include",
+                "/home/sofs/catkin_ws/src/rws2018/rws2018_ssantos/player_ssantos/include",
+                "/usr/include"
+            ],
+            "name": "Linux",
+            "intelliSenseMode": "clang-x64"
+        }
+    ],
+    "version": 3
+}
