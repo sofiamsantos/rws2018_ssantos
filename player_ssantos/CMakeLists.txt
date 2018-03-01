@@ -11,6 +11,8 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
+  rws2018_libs
+  tf
 )
 
 ## System dependencies are found with CMake's conventions
@@ -147,9 +149,9 @@ add_executable(player_ssantos_node src/player_ssantos_node.cpp)
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-# target_link_libraries(${PROJECT_NAME}_node
-#   ${catkin_LIBRARIES}
-# )
+target_link_libraries(player_ssantos_node
+   ${catkin_LIBRARIES}
+)
 
 #############
 ## Install ##
