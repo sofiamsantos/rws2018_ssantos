@@ -11,6 +11,7 @@
 #include <tf/transform_broadcaster.h>
 
 #include <rws2018_libs/team.h>
+#include <rws2018_msgs/MakeAPlay.h>
 
 using namespace std;
 
@@ -77,6 +78,11 @@ namespace rws_ssantos{
 
 		tf::TransformBroadcaster br;				//declare broadcaster
 
+		ros::NodeHandle n;
+		boost::shared_ptr<ros::Subscriber> sub;
+
+		tf::Transform transform;					//declare transformation object
+
 		MyPlayer(string name, string team) : Player(name){
 			red_team = boost::shared_ptr<Team>(new Team("red"));
 			green_team = boost::shared_ptr<Team>(new Team("green"));
@@ -104,6 +110,15 @@ namespace rws_ssantos{
 				setTeamName("blue");
 			}
 
+			sub = boost::shared_ptr<ros::Subscriber> (new ros::Subscriber());
+			*sub = n.subscribe("/make_a_play", 100, &MyPlayer::move,this);
+
+			// Spawn at random position
+			srand(682*time(NULL)); // set initial seed value to 5323
+			double start_x = ((double)rand()/(double)RAND_MAX)*10-5;
+			double start_y = ((double)rand()/(double)RAND_MAX)*10-5;
+
+			warp(start_x, start_y, M_PI/2);
 			printReport();
 		}
 
@@ -113,13 +128,26 @@ namespace rws_ssantos{
 			ROS_INFO("My name is %s and my team is %s", name.c_str(), getTeamName().c_str());
 		}
 
-		void move(void){
-			tf::Transform transform;						//declare transformation object
-			transform.setOrigin( tf::Vector3(9, 9, 0.0) );
+		void warp(double x, double y, double alfa){
+			transform.setOrigin( tf::Vector3(x, y, 0.0) );
 			tf::Quaternion q;
-			q.setRPY(0, 0, M_PI/2);
+			q.setRPY(0, 0, alfa);
 			transform.setRotation(q);
 			br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "world", "ssantos"));
+			ROS_INFO("Warping to (%f, %f) with alfa %f", x, y, alfa);
+		}
+
+		void move(const rws2018_msgs::MakeAPlay::ConstPtr& msg){
+			double x = transform.getOrigin().x();
+			double y = transform.getOrigin().y();
+			double a = 0.0;
+
+			transform.setOrigin( tf::Vector3(x+=0.01, y, 0.0) );
+			tf::Quaternion q;
+			q.setRPY(0, 0, a);
+			transform.setRotation(q);
+			br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "world", "ssantos"));
+			//ROS_INFO("Moving...");
 		}
 	};
 
@@ -128,23 +156,23 @@ namespace rws_ssantos{
 int main(int argc, char **argv){
 
 	ros::init(argc, argv, "ssantos");
+    ros::NodeHandle n;
 
     //Creating an instance of class Player
     rws_ssantos::MyPlayer my_player("ssantos","blue");    
 
-    ros::NodeHandle n;
-
-    //string test_param_value;
-    //n.getParam("test_param", test_param_value);
-    //cout << "read test_param with value " << test_param_value << endl;
-
     ros::Rate loop_rate(10);
-    while (ros::ok()){
+    /*while (ros::ok()){
+
 		my_player.move();
     
     	ros::spinOnce();
     	loop_rate.sleep();
-  	}
+  	}*/
 
     ros::spin();
+
+    //string test_param_value;
+    //n.getParam("test_param", test_param_value);
+    //cout << "read test_param with value " << test_param_value << endl;
 }
