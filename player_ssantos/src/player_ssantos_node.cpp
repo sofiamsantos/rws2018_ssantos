@@ -1,8 +1,3 @@
-/*int main()
-{
-    std::cout << "Hello world" << std::endl;           
-    return 1;                                                      
-}*/
 //System includes
 #include <iostream>
 #include <vector>
@@ -39,7 +34,9 @@ namespace rws_ssantos{
 	    			setTeamName("blue");
 	    			break;
 	    		default:
-	    			cout << "wrong team index given. Cannot set team" << endl; break;
+	    			//cout << "wrong team index given. Cannot set team" << endl;
+	    			ROS_ERROR("Wrong team index given. Cannot set team");
+	    			break;
 	    	}
 	    }
 
@@ -51,7 +48,8 @@ namespace rws_ssantos{
 	        }
 	        else
 	        {
-	            cout << "cannot set team name to " << team << endl;
+	            //cout << "cannot set team name to " << team << endl;
+	            ROS_ERROR("Cannot set team name to %s", team.c_str());
 	            return 0;
 	        }
 	    }
@@ -72,18 +70,47 @@ namespace rws_ssantos{
 		boost::shared_ptr<Team> red_team;
 		boost::shared_ptr<Team>  green_team;
 		boost::shared_ptr<Team>  blue_team;
+
+		boost::shared_ptr<Team> my_team;
+		boost::shared_ptr<Team>  my_preys;
+		boost::shared_ptr<Team>  my_hunters;
+
 		tf::TransformBroadcaster br;				//declare broadcaster
 
 		MyPlayer(string name, string team) : Player(name){
 			red_team = boost::shared_ptr<Team>(new Team("red"));
 			green_team = boost::shared_ptr<Team>(new Team("green"));
 			blue_team = boost::shared_ptr<Team>(new Team("blue"));
-			setTeamName(team);
+
+			if (red_team->playerBelongsToTeam(name))
+			{
+				my_team = red_team;
+				my_preys = green_team;
+				my_hunters = blue_team;
+				setTeamName("red");
+			}
+			else if (green_team->playerBelongsToTeam(name))
+			{
+				my_team = green_team;
+				my_preys = blue_team;
+				my_hunters = red_team;
+				setTeamName("green");
+			}
+			else if (blue_team->playerBelongsToTeam(name))
+			{
+				my_team = blue_team;
+				my_preys = red_team;
+				my_hunters = green_team;
+				setTeamName("blue");
+			}
+
 			printReport();
 		}
 
 		void printReport(){
-			cout << "My name is " << name << " and my team is " << getTeamName() << endl;
+			//cout << "My name is " << name << " and my team is " << getTeamName() << endl;
+			//ROS_INFO_STREAM("My name is " << name << " and my team is " << getTeamName());
+			ROS_INFO("My name is %s and my team is %s", name.c_str(), getTeamName().c_str());
 		}
 
 		void move(void){
