@@ -9,12 +9,15 @@
 #include <ros/ros.h>
 #include <std_msgs/String.h>
 #include <tf/transform_broadcaster.h>
+#include <tf/transform_listener.h>
 #include <visualization_msgs/Marker.h>
 
 #include <rws2018_libs/team.h>
 #include <rws2018_msgs/MakeAPlay.h>
 
 using namespace std;
+
+#define DEFAULT_TIME 0.05
 
 namespace rws_ssantos{
 
@@ -78,6 +81,7 @@ namespace rws_ssantos{
 		boost::shared_ptr<Team>  my_hunters;
 
 		tf::TransformBroadcaster br;				//declare broadcaster
+		tf::TransformListener listener;
 
 		ros::NodeHandle n;
 		boost::shared_ptr<ros::Subscriber> sub;
@@ -137,6 +141,7 @@ namespace rws_ssantos{
 			ROS_INFO("My name is %s and my team is %s", name.c_str(), getTeamName().c_str());
 		}
 
+		// Rviz Marker Specifications
 		void showMarker(){
 			visualization_msgs::Marker marker;
 			marker.header.frame_id = "ssantos";
@@ -157,7 +162,23 @@ namespace rws_ssantos{
 			pub->publish( marker );
 		}
 
+	//--Calculate to Another Player-----------------------------------------------------------------------
+		double getAngleToPlayer(string other_player, double time_to_wait = DEFAULT_TIME){
+			tf::StampedTransform t;	//The transform object
+			ros::Time now = ros::Time(0);	//Get the latest transform received
 
+			try{
+				listener.waitForTransform("ssantos", other_player, now, ros::Duration(time_to_wait));
+		      	listener.lookupTransform("ssantos", other_player, now, t);
+		    }catch (tf::TransformException ex){
+		      ROS_ERROR("%s",ex.what());
+		      ros::Duration(0.1).sleep();
+			}
+
+			return atan2(t.getOrigin().y(), t.getOrigin().x());
+		}
+
+	//--Spawner------------------------------------------------------------------------------------------
 		void warp(double x, double y, double alfa){
 			transform.setOrigin( tf::Vector3(x, y, 0.0) );
 			tf::Quaternion q;
@@ -167,6 +188,7 @@ namespace rws_ssantos{
 			ROS_INFO("Warping to (%f, %f) with alfa %f", x, y, alfa);
 		}
 
+		// Movement
 		void move(const rws2018_msgs::MakeAPlay::ConstPtr& msg){
 
 			double x = transform.getOrigin().x();
@@ -180,7 +202,12 @@ namespace rws_ssantos{
 			//--- AI PART
 			//-----------------------------------------------
 			double displacement = 6; // computed using AI
-			double delta_alpha = M_PI/2;
+			//double delta_alpha = M_PI/2;
+
+			// Get angle to another player
+			double delta_alpha = getAngleToPlayer("moliveira");
+			if(isnan(delta_alpha))
+				delta_alpha = 0;
 
 			//-----------------------------------------------
 			//--- CONSTRAINS PART
@@ -206,7 +233,7 @@ namespace rws_ssantos{
 			q.setRPY(0, 0, a);
 			transform.setRotation(q);*/
 
-			
+
 			br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "world", "ssantos"));
 			//ROS_INFO("Moving...");
 		}
