@@ -142,7 +142,7 @@ namespace rws_ssantos{
 		}
 
 		// Rviz Marker Specifications
-		void showMarker(){
+		void showMarker(string prey_name){
 			visualization_msgs::Marker marker;
 			marker.header.frame_id = "ssantos";
 			marker.header.stamp = ros::Time();
@@ -158,8 +158,24 @@ namespace rws_ssantos{
 			marker.color.g = 1.0;
 			marker.color.b = 1.0;
 			marker.lifetime = ros::Duration(2);
-			marker.text = "GO!";
+			marker.text = "Catching " + prey_name;
 			pub->publish( marker );
+		}
+
+	//--Calculate to Another Player-----------------------------------------------------------------------
+		double getDistanceToPlayer(string other_player, double time_to_wait = DEFAULT_TIME){
+			tf::StampedTransform t;	//The transform object
+			ros::Time now = ros::Time(0);	//Get the latest transform received
+
+			try{
+				listener.waitForTransform("ssantos", other_player, now, ros::Duration(time_to_wait));
+		      	listener.lookupTransform("ssantos", other_player, now, t);
+		    }catch (tf::TransformException ex){
+		      ROS_ERROR("%s",ex.what());
+		      ros::Duration(0.1).sleep();
+			}
+
+			return sqrt(pow(t.getOrigin().y(),2) + pow(t.getOrigin().x(),2));
 		}
 
 	//--Calculate to Another Player-----------------------------------------------------------------------
@@ -195,17 +211,29 @@ namespace rws_ssantos{
 			double y = transform.getOrigin().y();
 			double a = 0.0;
 
-			//create marker
-			showMarker();
-
 			//-----------------------------------------------
 			//--- AI PART
 			//-----------------------------------------------
-			double displacement = 6; // computed using AI
-			//double delta_alpha = M_PI/2;
 
+			//Find nearest prey -- player_to_hunt is the nearest player
+			double min_dist = 9999999;
+			string player_to_hunt = "no_player";
+			for(size_t i=0; i < my_preys->player_names.size(); i++){
+				double dist = getDistanceToPlayer(my_preys->player_names[i]);
+				if(isnan(dist));
+				else if(dist < min_dist){
+					min_dist = dist;
+					player_to_hunt = my_preys->player_names[i];
+				}
+			}
+
+			//create marker
+			showMarker(player_to_hunt);
+			
+			double displacement = 6; // max velocity
 			// Get angle to another player
-			double delta_alpha = getAngleToPlayer("moliveira");
+			double delta_alpha = getAngleToPlayer(player_to_hunt);
+
 			if(isnan(delta_alpha))
 				delta_alpha = 0;
 
