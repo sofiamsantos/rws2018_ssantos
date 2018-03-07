@@ -68,7 +68,8 @@ namespace rws_ssantos{
 	    string team;
 	};
 
-	//Class myPlayer extends class Player
+	//
+//--Class MYPLAYER extends class Player----------------------------------------------------------------------	
 	class MyPlayer : public Player {
 		public:
 
@@ -89,12 +90,13 @@ namespace rws_ssantos{
 
 		tf::Transform transform;					//declare transformation object
 
-		
+	//--Player Constructor----------------------------------------------------------------------------------
 		MyPlayer(string name, string team) : Player(name){
 			red_team = boost::shared_ptr<Team>(new Team("red"));
 			green_team = boost::shared_ptr<Team>(new Team("green"));
 			blue_team = boost::shared_ptr<Team>(new Team("blue"));
 
+			// Check Team Rules
 			if (red_team->playerBelongsToTeam(name))
 			{
 				my_team = red_team;
@@ -129,20 +131,20 @@ namespace rws_ssantos{
 			srand(682*time(NULL)); // set initial seed value to 5323
 			double start_x = ((double)rand()/(double)RAND_MAX)*10-5;
 			double start_y = ((double)rand()/(double)RAND_MAX)*10-5;
-
-
 			warp(start_x, start_y, M_PI/2);
+
 			printReport();
 		}
 
+	//--Print Player Name and Team---------------------------------------------------------------------------
 		void printReport(){
 			//cout << "My name is " << name << " and my team is " << getTeamName() << endl;
 			//ROS_INFO_STREAM("My name is " << name << " and my team is " << getTeamName());
 			ROS_INFO("My name is %s and my team is %s", name.c_str(), getTeamName().c_str());
 		}
 
-		// Rviz Marker Specifications
-		void showMarker(string prey_name){
+	//--Rviz Marker Specifications---------------------------------------------------------------------------
+		void showMarker(string phrase){
 			visualization_msgs::Marker marker;
 			marker.header.frame_id = "ssantos";
 			marker.header.stamp = ros::Time();
@@ -155,14 +157,14 @@ namespace rws_ssantos{
 			marker.scale.z = 0.3;
 			marker.color.a = 1.0; // Don't forget to set the alpha!
 			marker.color.r = 0.0;
-			marker.color.g = 1.0;
+			marker.color.g = 0.5;
 			marker.color.b = 1.0;
 			marker.lifetime = ros::Duration(2);
-			marker.text = "Catching " + prey_name;
+			marker.text = phrase;
 			pub->publish( marker );
 		}
 
-	//--Calculate to Another Player-----------------------------------------------------------------------
+	//--Calculate Distance to Another Player------------------------------------------------------------------
 		double getDistanceToPlayer(string other_player, double time_to_wait = DEFAULT_TIME){
 			tf::StampedTransform t;	//The transform object
 			ros::Time now = ros::Time(0);	//Get the latest transform received
@@ -178,7 +180,7 @@ namespace rws_ssantos{
 			return sqrt(pow(t.getOrigin().y(),2) + pow(t.getOrigin().x(),2));
 		}
 
-	//--Calculate to Another Player-----------------------------------------------------------------------
+	//--Calculate Angle to Another Player---------------------------------------------------------------------
 		double getAngleToPlayer(string other_player, double time_to_wait = DEFAULT_TIME){
 			tf::StampedTransform t;	//The transform object
 			ros::Time now = ros::Time(0);	//Get the latest transform received
@@ -194,17 +196,38 @@ namespace rws_ssantos{
 			return atan2(t.getOrigin().y(), t.getOrigin().x());
 		}
 
-	//--Spawner------------------------------------------------------------------------------------------
-		void warp(double x, double y, double alfa){
-			transform.setOrigin( tf::Vector3(x, y, 0.0) );
-			tf::Quaternion q;
-			q.setRPY(0, 0, alfa);
-			transform.setRotation(q);
-			br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "world", "ssantos"));
-			ROS_INFO("Warping to (%f, %f) with alfa %f", x, y, alfa);
+	//--Get Closest Player: Hunter and Prey---------------------------------------------------------------------
+		string closestPrey(const rws2018_msgs::MakeAPlay::ConstPtr& msg){
+			double min_dist = 9999999;
+			string player = "no_player";
+
+			for(size_t i=0; i < msg->red_alive.size(); i++){
+				double dist = getDistanceToPlayer(msg->red_alive[i]);
+				if(isnan(dist));
+				else if(dist < min_dist){
+					min_dist = dist;
+					player = msg->red_alive[i];
+				}
+			}
+			return player;
 		}
 
-		// Movement
+		string closestHunter(const rws2018_msgs::MakeAPlay::ConstPtr& msg){
+			double min_dist = 9999999;
+			string player = "no_player";
+
+			for(size_t i=0; i < msg->green_alive.size(); i++){
+				double dist = getDistanceToPlayer(msg->green_alive[i]);
+				if(isnan(dist));
+				else if(dist < min_dist){
+					min_dist = dist;
+					player = msg->green_alive[i];
+				}
+			}
+			return player;
+		}
+
+	//--Movement-----------------------------------------------------------------------------------------
 		void move(const rws2018_msgs::MakeAPlay::ConstPtr& msg){
 
 			double x = transform.getOrigin().x();
@@ -214,29 +237,27 @@ namespace rws_ssantos{
 			//-----------------------------------------------
 			//--- AI PART
 			//-----------------------------------------------
-
 			//Find nearest prey -- player_to_hunt is the nearest player
-			double min_dist = 9999999;
-			string player_to_hunt = "no_player";
-			for(size_t i=0; i < my_preys->player_names.size(); i++){
-				double dist = getDistanceToPlayer(my_preys->player_names[i]);
-				if(isnan(dist));
-				else if(dist < min_dist){
-					min_dist = dist;
-					player_to_hunt = my_preys->player_names[i];
-				}
+			string prey = closestPrey(msg);
+			string hunter = closestHunter(msg);
+			double displacement = 6; // velocity
+			double delta_alpha = getAngleToPlayer(prey);
+
+			if(getDistanceToPlayer(hunter) < 1 && getDistanceToPlayer(hunter) < getDistanceToPlayer(prey)){
+				delta_alpha = -getAngleToPlayer(hunter);
+				if(isnan(delta_alpha))
+					delta_alpha = 0;
+				//create marker
+				showMarker("Running "+hunter);
 			}
-
-			//create marker
-			showMarker(player_to_hunt);
+			else{
+				delta_alpha = getAngleToPlayer(prey);
+				if(isnan(delta_alpha))
+					delta_alpha = 0;
+				//create marker
+				showMarker("Catching "+prey);
+			}
 			
-			double displacement = 6; // max velocity
-			// Get angle to another player
-			double delta_alpha = getAngleToPlayer(player_to_hunt);
-
-			if(isnan(delta_alpha))
-				delta_alpha = 0;
-
 			//-----------------------------------------------
 			//--- CONSTRAINS PART
 			//-----------------------------------------------
@@ -256,15 +277,20 @@ namespace rws_ssantos{
 
 			transform = transform * my_move_T;
 
-			/*transform.setOrigin( tf::Vector3(x+=0.01, y, 0.0) );
-			tf::Quaternion q;
-			q.setRPY(0, 0, a);
-			transform.setRotation(q);*/
-
-
 			br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "world", "ssantos"));
 			//ROS_INFO("Moving...");
 		}
+
+	//--Spawner------------------------------------------------------------------------------------------
+		void warp(double x, double y, double alfa){
+			transform.setOrigin( tf::Vector3(x, y, 0.0) );
+			tf::Quaternion q;
+			q.setRPY(0, 0, alfa);
+			transform.setRotation(q);
+			br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "world", "ssantos"));
+			ROS_INFO("Warping to (%f, %f) with alfa %f", x, y, alfa);
+		}
+
 	};
 
 } //end of namespace rws_ssantos
