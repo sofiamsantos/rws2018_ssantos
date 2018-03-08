@@ -15,6 +15,8 @@
 
 #include <rws2018_libs/team.h>
 #include <rws2018_msgs/MakeAPlay.h>
+#include <rws2018_msgs/GameQuery.h>
+#include <sensor_msgs/PointCloud2.h>
 
 using namespace std;
 
@@ -89,13 +91,20 @@ namespace rws_ssantos{
 		boost::shared_ptr<ros::Subscriber> sub;
 		boost::shared_ptr<ros::Publisher> pub;
 
+		boost::shared_ptr<ros::ServiceServer> game_query_srv;
+		boost::shared_ptr<ros::Subscriber> pointCloudSub;	//subscriber for point cloud
+
 		tf::Transform transform;					//declare transformation object
+
+		string point_cloud_guess;
 
 	//--Player Constructor----------------------------------------------------------------------------------
 		MyPlayer(string name, string team) : Player(name){
 			red_team = boost::shared_ptr<Team>(new Team("red"));
 			green_team = boost::shared_ptr<Team>(new Team("green"));
 			blue_team = boost::shared_ptr<Team>(new Team("blue"));
+
+			point_cloud_guess = "banana";
 
 			// Check Team Rules
 			if (red_team->playerBelongsToTeam(name))
@@ -127,6 +136,14 @@ namespace rws_ssantos{
 			// Publish visualization marker
 			pub = boost::shared_ptr<ros::Publisher> (new ros::Publisher());
 			*pub = n.advertise<visualization_msgs::Marker>("/bocas", 0);
+
+			// 
+			game_query_srv = boost::shared_ptr<ros::ServiceServer>(new ros::ServiceServer());
+			*game_query_srv = n.advertiseService("/"+name+"/game_query",&MyPlayer::respondQuery,this);
+
+			// Subscribe to the Point Cloud
+			pointCloudSub = boost::shared_ptr<ros::Subscriber> (new ros::Subscriber());
+			*pointCloudSub = n.subscribe("/object_point_cloud", 1, &MyPlayer::guessPointCloud,this);
 
 			// Spawn at random position
 			srand(682*time(NULL)); // set initial seed value to 5323
@@ -170,7 +187,6 @@ namespace rws_ssantos{
 			double time_to_wait = DEFAULT_TIME;
 			tf::StampedTransform t;	//The transform object
 			ros::Time now = ros::Time(0);	//Get the latest transform received
-
 			try{
 				listener.waitForTransform("/world", "ssantos", now, ros::Duration(time_to_wait));
 		      	listener.lookupTransform("/world", "ssantos", now, t);
@@ -178,10 +194,8 @@ namespace rws_ssantos{
 		      ROS_ERROR("%s",ex.what());
 		      ros::Duration(0.1).sleep();
 			}
-
 			return make_pair(t.getOrigin().x(), t.getOrigin().y());
-		}
-	*/
+		}*/
 
 	//--Calculate Distance to Another Player------------------------------------------------------------------
 		double getDistanceToPlayer(string other_player, double time_to_wait = DEFAULT_TIME){
@@ -270,15 +284,14 @@ namespace rws_ssantos{
 					delta_alpha = 0;
 				//create marker
 				showMarker("Running "+hunter);
-				ROS_INFO("Running %s", hunter.c_str());
+				//ROS_INFO("Running %s", hunter.c_str());
 
 				// Boundary Checker
 				if(getDistanceToPlayer("world") >= 5.5){
-					delta_alpha = getAngleToPlayer("world") + M_PI/2;
+					delta_alpha = getAngleToPlayer("world") + M_PI/4;
 					//create marker
 					showMarker("Fronteira");
-					ROS_INFO("Fronteira");
-
+					//ROS_INFO("Fronteira");
 				}
 			}
 			// Go after prey;
@@ -288,12 +301,9 @@ namespace rws_ssantos{
 					delta_alpha = 0;
 				//create marker
 				showMarker("Catching "+prey);
-				ROS_INFO("Catching %s", prey.c_str());
-
+				//ROS_INFO("Catching %s", prey.c_str());
 			}
-
 			//pair<double, double> myposition = getMyPosition();
-			
 			
 			//-----------------------------------------------
 			//--- CONSTRAINS PART
@@ -326,6 +336,20 @@ namespace rws_ssantos{
 			transform.setRotation(q);
 			br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "world", "ssantos"));
 			ROS_INFO("Warping to (%f, %f) with alfa %f", x, y, alfa);
+		}
+
+	//--Respond to Service------------------------------------------------------------------------------------------
+		bool respondQuery(rws2018_msgs::GameQuery::Request &req, rws2018_msgs::GameQuery::Response &res){
+			ROS_WARN_STREAM("I am" << name << "and I'm responding to a service request");
+			res.resposta = point_cloud_guess;
+			return true;
+		}
+
+	//--Receive Point Cloud------------------------------------------------------------------------------------------
+		void guessPointCloud(const sensor_msgs::PointCloud2::ConstPtr& msg){
+			ROS_INFO("POINT CLOUD RECEIVED");
+			// Guessing the point cloud
+			point_cloud_guess = "tomato";
 		}
 
 	};
