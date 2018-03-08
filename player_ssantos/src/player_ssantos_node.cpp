@@ -1,6 +1,7 @@
 //System includes
 #include <iostream>
 #include <vector>
+#include <utility>
 
 //Boost includes
 #include <boost/shared_ptr.hpp>
@@ -152,7 +153,7 @@ namespace rws_ssantos{
 			marker.id = 0;
 			marker.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
 			marker.action = visualization_msgs::Marker::ADD;
-			marker.pose.position.y = 1.05;
+			marker.pose.position.y = 0.8;
 			marker.pose.orientation.w = 1.0;
 			marker.scale.z = 0.3;
 			marker.color.a = 1.0; // Don't forget to set the alpha!
@@ -163,6 +164,24 @@ namespace rws_ssantos{
 			marker.text = phrase;
 			pub->publish( marker );
 		}
+
+	//--Get my Position in the World------------------------------------------------------------------
+	/*	pair<double,double> getMyPosition(){
+			double time_to_wait = DEFAULT_TIME;
+			tf::StampedTransform t;	//The transform object
+			ros::Time now = ros::Time(0);	//Get the latest transform received
+
+			try{
+				listener.waitForTransform("/world", "ssantos", now, ros::Duration(time_to_wait));
+		      	listener.lookupTransform("/world", "ssantos", now, t);
+		    }catch (tf::TransformException ex){
+		      ROS_ERROR("%s",ex.what());
+		      ros::Duration(0.1).sleep();
+			}
+
+			return make_pair(t.getOrigin().x(), t.getOrigin().y());
+		}
+	*/
 
 	//--Calculate Distance to Another Player------------------------------------------------------------------
 		double getDistanceToPlayer(string other_player, double time_to_wait = DEFAULT_TIME){
@@ -237,26 +256,44 @@ namespace rws_ssantos{
 			//-----------------------------------------------
 			//--- AI PART
 			//-----------------------------------------------
-			//Find nearest prey -- player_to_hunt is the nearest player
+
+			//Find nearest player hunter/prey
 			string prey = closestPrey(msg);
 			string hunter = closestHunter(msg);
 			double displacement = 6; // velocity
 			double delta_alpha = getAngleToPlayer(prey);
 
-			if(getDistanceToPlayer(hunter) < 1 && getDistanceToPlayer(hunter) < getDistanceToPlayer(prey)){
+			// Check if being hunted
+			if(getDistanceToPlayer(prey) > getDistanceToPlayer(hunter) && getDistanceToPlayer(hunter) < 2){
 				delta_alpha = -getAngleToPlayer(hunter);
 				if(isnan(delta_alpha))
 					delta_alpha = 0;
 				//create marker
 				showMarker("Running "+hunter);
+				ROS_INFO("Running %s", hunter.c_str());
+
+				// Boundary Checker
+				if(getDistanceToPlayer("world") >= 5.5){
+					delta_alpha = getAngleToPlayer("world") + M_PI/2;
+					//create marker
+					showMarker("Fronteira");
+					ROS_INFO("Fronteira");
+
+				}
 			}
+			// Go after prey;
 			else{
 				delta_alpha = getAngleToPlayer(prey);
 				if(isnan(delta_alpha))
 					delta_alpha = 0;
 				//create marker
 				showMarker("Catching "+prey);
+				ROS_INFO("Catching %s", prey.c_str());
+
 			}
+
+			//pair<double, double> myposition = getMyPosition();
+			
 			
 			//-----------------------------------------------
 			//--- CONSTRAINS PART
